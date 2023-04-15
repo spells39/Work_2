@@ -43,5 +43,11 @@
     <None Include="..\shader.vs">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="..\colors.vs">
+      <Filter>Файлы заголовков</Filter>
+    </None>
+    <None Include="..\colors.fs">
+      <Filter>Файлы заголовков</Filter>
+    </None>
   </ItemGroup>
 </Project>
