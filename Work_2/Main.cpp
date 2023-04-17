@@ -1,6 +1,14 @@
+/*
+Для начала нужно нажать enter
+кнопки 1 и 2 направляют соответствующий куб в обратное направление (у каждого нажатия есть кд, так как без этого кнопка считывается на многих тактах)
+при столкновении можно опять запустить через enter
+*/
+
+
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include<cmath>
 //#include <gl/gl.h>
 
 #include <glm/glm.hpp>
@@ -10,6 +18,14 @@
 #include "Shaders.h"
 #include "Camera.h"
 #include "stb_image.h"
+
+#define CUBS_COUNT 2
+
+
+
+float xR = 0.001f, yR = 0.001f, zR = 0.001f;
+
+
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -24,6 +40,8 @@ float lastFrame = 0.0f;
 Camera camera(glm::vec3(-1.2f, -0.25f, 3.0f));
 
 bool firstMouse = true;
+bool flagColisionOut = false;
+bool startGame = false;
 
 float lastX = SCR_WIDTH / 2.0;
 float lastY = SCR_HEIGHT / 2.0;
@@ -48,10 +66,13 @@ GLuint mapInd[mapW - 1][mapH - 1][6];
 int mapIndCnt = sizeof(mapInd) / sizeof(GLuint);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* path);
+void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation); // Принисает вектор позиции куба и соответствующий ему вектор перемещения 
+bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation); // Меняет направления полёта кубов, если происходит столкновение и возвращает true
+void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber);
 //void Map_Init();
 //void Map_Show();
 
@@ -136,15 +157,28 @@ int main()
 
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
-		glm::vec3(2.0f,  5.0f, -15.0f),
+		glm::vec3(2.0f,  2.0f, 2.0f),
 		glm::vec3(-1.5f, -2.2f, -2.5f),
-		glm::vec3(-3.8f, -2.0f, -12.3f),
+		glm::vec3(-3.8f, -2.0f, -2.3f),
 		glm::vec3(2.4f, -0.4f, -3.5f),
-		glm::vec3(-1.7f,  3.0f, -7.5f),
+		glm::vec3(-1.7f,  3.0f, -1.5f),
 		glm::vec3(1.3f, -2.0f, -2.5f),
 		glm::vec3(1.5f,  2.0f, -2.5f),
 		glm::vec3(1.5f,  0.2f, -1.5f),
 		glm::vec3(-1.3f,  1.0f, -1.5f)
+	};
+
+	glm::vec3 cubeRotation[] = {
+		glm::vec3(0.001f,  0.001f,  0.001f),
+		glm::vec3(0.0009f,  -0.0009f,  0.0009f),
+		glm::vec3(0.0006f,  0.0006f,  0.0006f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f)
 	};
 
 	glm::vec3 pointLightPositions[] = {
@@ -191,13 +225,16 @@ int main()
 	lightingShader.setInt("material.diffuse", 0);
 	lightingShader.setInt("material.specular", 1);
 	//lightingShader.setInt("material.emission", 2);
+
+	size_t taktFlag = 0;
 	
 	while (!glfwWindowShouldClose(window))
 	{
+		if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) startGame = true;
 		float currentTime = glfwGetTime();
 		deltaTime = currentTime - lastFrame;
 		lastFrame = currentTime;
-		processInput(window);
+		processInput(window, cubeRotation, taktFlag);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -247,6 +284,7 @@ int main()
 		lightingShader.setFloat("pointLights[3].quadratic", 0.032);
 
 		// Прожектор
+
 		lightingShader.setVec3("spotLight.position", camera.Position);
 		lightingShader.setVec3("spotLight.direction", camera.Front);
 		lightingShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
@@ -271,15 +309,25 @@ int main()
 		glBindTexture(GL_TEXTURE_2D, diffuseMap);
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, specularMap);
+		
+		if (startGame) {
+			for (int i = 0; i < CUBS_COUNT; i++) {
+				if (boxCollision(cubePositions, i, cubeRotation)) startGame = false;
+				boxMove(cubePositions[i], cubeRotation[i]);
+			}
+		}
+
+
 
 		// рендеринг ящика
 		glBindVertexArray(cubeVAO);
-		for (unsigned int i = 0; i < 10; i++)
+		for (unsigned int i = 0; i < CUBS_COUNT; i++)
 		{
 			// Вычисляем матрицу модели для каждого объекта и передаем её в шейдер
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
 			float angle = 20.0f * i;
+
 			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 			lightingShader.setMat4("model", model);
 
@@ -360,7 +408,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag)
 {
 	const float cameraSpeed = 2.5f * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -373,6 +421,15 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
+	if ((glfwGetKey(window, GLFW_KEY_1) && (taktFlag > 1100)) == GLFW_PRESS) {
+		ChangeDierction(cubeRotation, 0);
+		taktFlag = 0;
+	}
+	if ((glfwGetKey(window, GLFW_KEY_2) && (taktFlag > 1100)) == GLFW_PRESS) {
+		ChangeDierction(cubeRotation, 1);
+		taktFlag = 0;
+	}
+	taktFlag++;
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -428,4 +485,45 @@ unsigned int loadTexture(const char* path)
 		stbi_image_free(data);
 	}
 	return textureID;
+}
+
+void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation) {
+	// Если куб долетает до "края" по любой из координат, то коэффициент перемещения по этой координате меняется на противоположный по знаку
+	if ((cubePositions.x + cubeRotation.x >= 3.0f) || (cubePositions.x + cubeRotation.x <= -1.0f))
+	{
+		cubeRotation.x = -cubeRotation.x;
+
+	}
+	if ((cubePositions.y + cubeRotation.y >= 3.5f) || (cubePositions.y + cubeRotation.y <= -1.0f))
+	{
+		cubeRotation.y = -cubeRotation.y;
+	}
+	if ((cubePositions.z + cubeRotation.z >= 3.0f) || (cubePositions.z + cubeRotation.z <= -0.5f))
+	{
+		cubeRotation.z = -cubeRotation.z;
+	}
+	cubePositions.x += cubeRotation.x;
+	cubePositions.y += cubeRotation.y;
+	cubePositions.z += cubeRotation.z;
+}
+
+bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation) {
+	bool res = false;
+	for (size_t i = curCubeId + 1; i < CUBS_COUNT; i++) {
+		if (abs((cubePositions[curCubeId].x) - (cubePositions[i].x)) <= 1.0f)
+			if (abs((cubePositions[curCubeId].y) - (cubePositions[i].y)) <= 1.0f)
+				if (abs((cubePositions[curCubeId].z) - (cubePositions[i].z)) <= 1.0f)
+				{ 
+					ChangeDierction(cubeRotation, curCubeId);
+					ChangeDierction(cubeRotation, i);
+					return true;
+				}
+	}
+	return false;
+}
+
+void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber) {
+	cubeRotation[cubeNumber].x = -cubeRotation[cubeNumber].x;
+	cubeRotation[cubeNumber].y = -cubeRotation[cubeNumber].y;
+	cubeRotation[cubeNumber].z = -cubeRotation[cubeNumber].z;
 }
