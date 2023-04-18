@@ -1,7 +1,6 @@
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-//#include <gl/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -10,6 +9,14 @@
 #include "Shaders.h"
 #include "Camera.h"
 #include "stb_image.h"
+
+#define CUBS_COUNT 2
+
+
+
+float xR = 0.001f, yR = 0.001f, zR = 0.001f;
+
+
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -24,6 +31,8 @@ float lastFrame = 0.0f;
 Camera camera(glm::vec3(-1.2f, -0.25f, 3.0f));
 
 bool firstMouse = true;
+bool flagColisionOut = false;
+bool startGame = false;
 
 float lastX = SCR_WIDTH / 2.0;
 float lastY = SCR_HEIGHT / 2.0;
@@ -48,10 +57,13 @@ GLuint mapInd[mapW - 1][mapH - 1][6];
 int mapIndCnt = sizeof(mapInd) / sizeof(GLuint);
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
+void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* path);
+void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation); 
+bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation); 
+void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber);
 //void Map_Init();
 //void Map_Show();
 
@@ -85,12 +97,10 @@ int main()
 	glEnable(GL_DEPTH_TEST);
 
 	Shader lightingShader("../colors.vs", "../colors.fs");
+	Shader lightingShader1("../colors.vs", "../colors.fs");
 	Shader lampShader("../shader.vs", "../shader.fs");
 
-	//Map_Init();
-
 	float vertices[] = {
-		// координаты        // нормали           // текстурные координаты
 		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f, 0.0f,
 		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 0.0f,
 		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  1.0f, 1.0f,
@@ -136,15 +146,39 @@ int main()
 
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
-		glm::vec3(2.0f,  5.0f, -15.0f),
+		glm::vec3(2.0f,  2.0f, 2.0f),
 		glm::vec3(-1.5f, -2.2f, -2.5f),
-		glm::vec3(-3.8f, -2.0f, -12.3f),
+		glm::vec3(-3.8f, -2.0f, -2.3f),
 		glm::vec3(2.4f, -0.4f, -3.5f),
-		glm::vec3(-1.7f,  3.0f, -7.5f),
+		glm::vec3(-1.7f,  3.0f, -1.5f),
 		glm::vec3(1.3f, -2.0f, -2.5f),
 		glm::vec3(1.5f,  2.0f, -2.5f),
 		glm::vec3(1.5f,  0.2f, -1.5f),
 		glm::vec3(-1.3f,  1.0f, -1.5f)
+	};
+
+	glm::vec3 cubeLightPos[] = {
+		glm::vec3(3.0f, 3.5f, 3.0f),
+		glm::vec3(-1.0f, -1.0f, -0.5f),
+		glm::vec3(3.0f, 3.5f, -0.5f),
+		glm::vec3(3.0f, -1.0f, -0.5f),
+		glm::vec3(3.0f, -1.0f, 3.0f),
+		glm::vec3(-1.0f, -1.0f, 3.0f),
+		glm::vec3(-1.0f, 3.5f, -0.5f),
+		glm::vec3(-1.0f, 3.5f, 3.0f)
+	};
+
+	glm::vec3 cubeRotation[] = {
+		glm::vec3(0.001f,  0.001f,  0.001f),
+		glm::vec3(0.0009f,  -0.0009f,  0.0009f),
+		glm::vec3(0.0006f,  0.0006f,  0.0006f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f)
 	};
 
 	glm::vec3 pointLightPositions[] = {
@@ -164,11 +198,11 @@ int main()
 
 	glBindVertexArray(cubeVAO);
 
-	//координатные атрибуты
+
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
-	//атрибуты нормалей
+
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
 	glEnableVertexAttribArray(1);
 
@@ -186,18 +220,25 @@ int main()
 
 	unsigned int diffuseMap = loadTexture("../textures/1-5.png");
 	unsigned int specularMap = loadTexture("../textures/3-4.png");
+	unsigned int specularMap1 = loadTexture("../textures/5-3.png");
+	unsigned int diffuseMap1 = loadTexture("../textures/1.png");
 	unsigned int emissionMap = loadTexture("../textures/7.jpg");
 	lightingShader.use();
 	lightingShader.setInt("material.diffuse", 0);
 	lightingShader.setInt("material.specular", 1);
+	lightingShader1.setInt("material.diffuse", 0);
+	lightingShader1.setInt("material.specular", 1);
 	//lightingShader.setInt("material.emission", 2);
-	
+
+	size_t taktFlag = 0;
+
 	while (!glfwWindowShouldClose(window))
 	{
+		if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) startGame = true;
 		float currentTime = glfwGetTime();
 		deltaTime = currentTime - lastFrame;
 		lastFrame = currentTime;
-		processInput(window);
+		processInput(window, cubeRotation, taktFlag);
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -210,8 +251,8 @@ int main()
 		lightingShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
 		lightingShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
 
-		// Точечный источник света №1
-		lightingShader.setVec3("pointLights[0].position", pointLightPositions[0]);
+
+		lightingShader.setVec3("pointLights[0].position", cubeLightPos[0]);
 		lightingShader.setVec3("pointLights[0].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
@@ -219,8 +260,8 @@ int main()
 		lightingShader.setFloat("pointLights[0].linear", 0.09);
 		lightingShader.setFloat("pointLights[0].quadratic", 0.032);
 
-		// Точечный источник света №2
-		lightingShader.setVec3("pointLights[1].position", pointLightPositions[1]);
+
+		lightingShader.setVec3("pointLights[1].position", cubeLightPos[1]);
 		lightingShader.setVec3("pointLights[1].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[1].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[1].specular", 1.0f, 1.0f, 1.0f);
@@ -228,8 +269,8 @@ int main()
 		lightingShader.setFloat("pointLights[1].linear", 0.09);
 		lightingShader.setFloat("pointLights[1].quadratic", 0.032);
 
-		// Точечный источник света №3
-		lightingShader.setVec3("pointLights[2].position", pointLightPositions[2]);
+
+		lightingShader.setVec3("pointLights[2].position", cubeLightPos[2]);
 		lightingShader.setVec3("pointLights[2].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[2].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[2].specular", 1.0f, 1.0f, 1.0f);
@@ -237,8 +278,8 @@ int main()
 		lightingShader.setFloat("pointLights[2].linear", 0.09);
 		lightingShader.setFloat("pointLights[2].quadratic", 0.032);
 
-		// Точечный источник света №4
-		lightingShader.setVec3("pointLights[3].position", pointLightPositions[3]);
+
+		lightingShader.setVec3("pointLights[3].position", cubeLightPos[3]);
 		lightingShader.setVec3("pointLights[3].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[3].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[3].specular", 1.0f, 1.0f, 1.0f);
@@ -246,7 +287,38 @@ int main()
 		lightingShader.setFloat("pointLights[3].linear", 0.09);
 		lightingShader.setFloat("pointLights[3].quadratic", 0.032);
 
-		// Прожектор
+		lightingShader.setVec3("pointLights[4].position", cubeLightPos[4]);
+		lightingShader.setVec3("pointLights[4].ambient", 0.05f, 0.05f, 0.05f);
+		lightingShader.setVec3("pointLights[4].diffuse", 0.8f, 0.8f, 0.8f);
+		lightingShader.setVec3("pointLights[4].specular", 1.0f, 1.0f, 1.0f);
+		lightingShader.setFloat("pointLights[4].constant", 1.0f);
+		lightingShader.setFloat("pointLights[4].linear", 0.09);
+		lightingShader.setFloat("pointLights[4].quadratic", 0.032);
+
+		lightingShader.setVec3("pointLights[5].position", cubeLightPos[5]);
+		lightingShader.setVec3("pointLights[5].ambient", 0.05f, 0.05f, 0.05f);
+		lightingShader.setVec3("pointLights[5].diffuse", 0.8f, 0.8f, 0.8f);
+		lightingShader.setVec3("pointLights[5].specular", 1.0f, 1.0f, 1.0f);
+		lightingShader.setFloat("pointLights[5].constant", 1.0f);
+		lightingShader.setFloat("pointLights[5].linear", 0.09);
+		lightingShader.setFloat("pointLights[5].quadratic", 0.032);
+
+		lightingShader.setVec3("pointLights[6].position", cubeLightPos[6]);
+		lightingShader.setVec3("pointLights[6].ambient", 0.05f, 0.05f, 0.05f);
+		lightingShader.setVec3("pointLights[6].diffuse", 0.8f, 0.8f, 0.8f);
+		lightingShader.setVec3("pointLights[6].specular", 1.0f, 1.0f, 1.0f);
+		lightingShader.setFloat("pointLights[6].constant", 1.0f);
+		lightingShader.setFloat("pointLights[6].linear", 0.09);
+		lightingShader.setFloat("pointLights[6].quadratic", 0.032);
+
+		lightingShader.setVec3("pointLights[7].position", cubeLightPos[7]);
+		lightingShader.setVec3("pointLights[7].ambient", 0.05f, 0.05f, 0.05f);
+		lightingShader.setVec3("pointLights[7].diffuse", 0.8f, 0.8f, 0.8f);
+		lightingShader.setVec3("pointLights[7].specular", 1.0f, 1.0f, 1.0f);
+		lightingShader.setFloat("pointLights[7].constant", 1.0f);
+		lightingShader.setFloat("pointLights[7].linear", 0.09);
+		lightingShader.setFloat("pointLights[7].quadratic", 0.032);
+
 		lightingShader.setVec3("spotLight.position", camera.Position);
 		lightingShader.setVec3("spotLight.direction", camera.Front);
 		lightingShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
@@ -258,7 +330,7 @@ int main()
 		lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
 		lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
 
-		//создание преобразования
+
 		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
 		glm::mat4 view = camera.GetViewMatrix();
 		lightingShader.setMat4("projection", projection);
@@ -272,31 +344,36 @@ int main()
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, specularMap);
 
-		// рендеринг ящика
+		if (startGame) {
+			for (int i = 0; i < CUBS_COUNT; i++) {
+				if (boxCollision(cubePositions, i, cubeRotation)) startGame = false;
+				boxMove(cubePositions[i], cubeRotation[i]);
+			}
+		}
+		
 		glBindVertexArray(cubeVAO);
-		for (unsigned int i = 0; i < 10; i++)
+		for (unsigned int i = 0; i < CUBS_COUNT; i++)
 		{
-			// Вычисляем матрицу модели для каждого объекта и передаем её в шейдер
+			
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
 			float angle = 20.0f * i;
+
 			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 			lightingShader.setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
 
-		//Map_Show();
-
 		lampShader.use();
 		lampShader.setMat4("projection", projection);
 		lampShader.setMat4("view", view);
 
 		glBindVertexArray(lightVAO);
-		for (unsigned int i = 0; i < 4; i++)
+		for (unsigned int i = 0; i < 8; i++)
 		{
 			model = glm::mat4(1.0f);
-			model = glm::translate(model, pointLightPositions[i]);
+			model = glm::translate(model, cubeLightPos[i]);
 			model = glm::scale(model, glm::vec3(0.2f));
 			lampShader.setMat4("model", model);
 			glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -312,55 +389,12 @@ int main()
 	return 0;
 }
 
-void Map_Init()
-{
-	for(int i = 0; i < mapW; i++)
-		for (int j = 0; j < mapH; j++)
-		{
-			float dc = (rand() % 20) * 0.01;
-			mapCol[i][j].r = 0.31 + dc;
-			mapCol[i][j].g = 0.5 + dc;
-			mapCol[i][j].b = 0.13 + dc;
-
-			map[i][j].x = i;
-			map[i][j].y = i;
-			map[i][j].z = (rand() % 10) * 0.05;
-		}
-	for (int i = 0; i < mapW - 1; i++)
-	{
-		int pos = i * mapH;
-		for (int j = 0; j < mapH - 1; j++)
-		{
-			mapInd[i][j][0] = pos;
-			mapInd[i][j][1] = pos + 1;
-			mapInd[i][j][2] = pos + 1 + mapH;
-
-			mapInd[i][j][3] = pos + 1 + mapH;
-			mapInd[i][j][4] = pos + mapH;
-			mapInd[i][j][5] = pos;
-
-			pos++;
-		}
-	}
-}
-
-/*void Map_Show()
-{
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_COLOR_ARRAY);
-	glVertexPointer(3, GL_FLOAT, 0, map);
-	glColorPointer(3, GL_FLOAT, 0, mapCol);
-	glDrawElements(GL_TRIANGLES, mapIndCnt, GL_UNSIGNED_INT, mapInd);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_COLOR_ARRAY);
-}*/
-
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
 
-void processInput(GLFWwindow* window)
+void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag)
 {
 	const float cameraSpeed = 2.5f * deltaTime;
 	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -373,6 +407,15 @@ void processInput(GLFWwindow* window)
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
+	if ((glfwGetKey(window, GLFW_KEY_1) && (taktFlag > 1100)) == GLFW_PRESS) {
+		ChangeDierction(cubeRotation, 0);
+		taktFlag = 0;
+	}
+	if ((glfwGetKey(window, GLFW_KEY_2) && (taktFlag > 1100)) == GLFW_PRESS) {
+		ChangeDierction(cubeRotation, 1);
+		taktFlag = 0;
+	}
+	taktFlag++;
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -429,3 +472,45 @@ unsigned int loadTexture(const char* path)
 	}
 	return textureID;
 }
+
+void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation) {
+	
+	if ((cubePositions.x + cubeRotation.x >= 3.0f) || (cubePositions.x + cubeRotation.x <= -1.0f))
+	{
+		cubeRotation.x = -cubeRotation.x;
+
+	}
+	if ((cubePositions.y + cubeRotation.y >= 3.5f) || (cubePositions.y + cubeRotation.y <= -1.0f))
+	{
+		cubeRotation.y = -cubeRotation.y;
+	}
+	if ((cubePositions.z + cubeRotation.z >= 3.0f) || (cubePositions.z + cubeRotation.z <= -0.5f))
+	{
+		cubeRotation.z = -cubeRotation.z;
+	}
+	cubePositions.x += cubeRotation.x;
+	cubePositions.y += cubeRotation.y;
+	cubePositions.z += cubeRotation.z;
+}
+
+bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation) {
+	bool res = false;
+	for (size_t i = curCubeId + 1; i < CUBS_COUNT; i++) {
+		if (abs((cubePositions[curCubeId].x) - (cubePositions[i].x)) <= 1.0f)
+			if (abs((cubePositions[curCubeId].y) - (cubePositions[i].y)) <= 1.0f)
+				if (abs((cubePositions[curCubeId].z) - (cubePositions[i].z)) <= 1.0f)
+				{
+					ChangeDierction(cubeRotation, curCubeId);
+					ChangeDierction(cubeRotation, i);
+					return true;
+				}
+	}
+	return false;
+}
+
+void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber) {
+	cubeRotation[cubeNumber].x = -cubeRotation[cubeNumber].x;
+	cubeRotation[cubeNumber].y = -cubeRotation[cubeNumber].y;
+	cubeRotation[cubeNumber].z = -cubeRotation[cubeNumber].z;
+}
+
