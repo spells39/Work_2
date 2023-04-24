@@ -16,7 +16,7 @@
 
 float xR = 0.001f, yR = 0.001f, zR = 0.001f;
 
-
+const unsigned int SPHERE_COUNT = 5;
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -36,6 +36,12 @@ bool startGame = false;
 
 float lastX = SCR_WIDTH / 2.0;
 float lastY = SCR_HEIGHT / 2.0;
+
+const int Y_segments = 50;
+const int X_segments = 50;
+const GLfloat PI = 3.14159265358979323846f;
+
+float spin = 1.0f;
 
 glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
 
@@ -97,7 +103,7 @@ int main()
 	glEnable(GL_DEPTH_TEST);
 
 	Shader lightingShader("../colors.vs", "../colors.fs");
-	Shader lightingShader1("../colors.vs", "../colors.fs");
+	Shader sphereShader("../colors.vs", "../colors.fs");
 	Shader lampShader("../shader.vs", "../shader.fs");
 
 	float vertices[] = {
@@ -144,6 +150,19 @@ int main()
 		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f, 1.0f
 	};
 
+	glm::vec3 spherePositions[] = {
+		glm::vec3(1.0f,  0.4f,  -0.1f),
+		glm::vec3(-1.1f,  1.7f, 1.0f),
+		glm::vec3(-1.0f, 2.0f, -2.5f),
+		glm::vec3(-3.0f, -2.5f, 2.3f),
+		glm::vec3(2.4f, 0.9f, 3.5f),
+		glm::vec3(1.2f,  2.0f, -1.9f),
+		glm::vec3(0.6f, -0.7f, -2.5f),
+		glm::vec3(1.1f,  2.3f, -1.2f),
+		glm::vec3(0.5f,  0.2f, -1.5f),
+		glm::vec3(-1.7f,  1.5f, -1.0f)
+	};
+
 	glm::vec3 cubePositions[] = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
 		glm::vec3(2.0f,  2.0f, 2.0f),
@@ -188,7 +207,34 @@ int main()
 		glm::vec3(0.0f,  0.0f, -3.0f)
 	};
 
-	unsigned int VBO, cubeVAO;
+	std::vector<float> SphereVertices;
+	std::vector<int> SphereIndices;
+
+	for(int y = 0; y <= Y_segments; y++)
+		for (int x = 0; x <= X_segments; x++)
+		{
+			float xSegment = (float)x / (float)X_segments;
+			float ySegment = (float)y / (float)Y_segments;
+			float xPos = std::cos(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+			float yPos = std::cos(ySegment * PI);
+			float zPos = std::sin(xSegment * 2.0f * PI) * std::sin(ySegment * PI);
+			SphereVertices.push_back(xPos);
+			SphereVertices.push_back(yPos);
+			SphereVertices.push_back(zPos);
+		}
+
+	for(int i = 0; i < Y_segments; i++)
+		for (int j = 0; j < X_segments; j++)
+		{
+			SphereIndices.push_back(i* (X_segments + 1) + j);
+			SphereIndices.push_back((i + 1) * (X_segments + 1) + j);
+			SphereIndices.push_back((i + 1)* (X_segments + 1) + j + 1);
+			SphereIndices.push_back(i* (X_segments + 1) + j);
+			SphereIndices.push_back((i + 1)* (X_segments + 1) + j + 1);
+			SphereIndices.push_back(i* (X_segments + 1) + j + 1);
+		}
+
+	unsigned int VBO, cubeVAO, sphereVAO, sphereVBO;
 	glGenVertexArrays(1, &cubeVAO);
 	glGenBuffers(1, &VBO);
 	//glGenBuffers(1, &EBO);
@@ -209,6 +255,30 @@ int main()
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
 
+	glGenVertexArrays(1, &sphereVAO);
+	glGenBuffers(1, &sphereVBO);
+	
+	glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
+	glBufferData(GL_ARRAY_BUFFER, SphereVertices.size() * sizeof(float), &SphereVertices[0], GL_STATIC_DRAW);
+
+	glBindVertexArray(sphereVAO);
+	GLuint EBO;
+	glGenBuffers(1, &EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, SphereIndices.size() * sizeof(int), &SphereIndices[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
 	unsigned int lightVAO;
 	glGenVertexArrays(1, &lightVAO);
 	glBindVertexArray(lightVAO);
@@ -220,14 +290,15 @@ int main()
 
 	unsigned int diffuseMap = loadTexture("../textures/1-5.png");
 	unsigned int specularMap = loadTexture("../textures/3-4.png");
-	unsigned int specularMap1 = loadTexture("../textures/5-3.png");
-	unsigned int diffuseMap1 = loadTexture("../textures/1.png");
+	unsigned int specularMap1 = loadTexture("../textures/12.jpg");
+	unsigned int diffuseMap1 = loadTexture("../textures/11.jpeg");
 	unsigned int emissionMap = loadTexture("../textures/7.jpg");
 	lightingShader.use();
 	lightingShader.setInt("material.diffuse", 0);
 	lightingShader.setInt("material.specular", 1);
-	lightingShader1.setInt("material.diffuse", 0);
-	lightingShader1.setInt("material.specular", 1);
+	sphereShader.use();
+	sphereShader.setInt("material.diffuse", 0);
+	sphereShader.setInt("material.specular", 1);
 	//lightingShader.setInt("material.emission", 2);
 
 	size_t taktFlag = 0;
@@ -245,6 +316,7 @@ int main()
 		lightingShader.use();
 		lightingShader.setVec3("viewPos", camera.Position);
 		lightingShader.setFloat("material.shininess", 32.0f);
+		sphereShader.setFloat("material.shininess", 32.0f);
 
 		lightingShader.setVec3("dirLight.direction", -0.2f, -1.0f, -0.3f);
 		lightingShader.setVec3("dirLight.ambient", 0.05f, 0.05f, 0.05f);
@@ -338,6 +410,8 @@ int main()
 
 		glm::mat4 model = glm::mat4(1.0f);
 		lightingShader.setMat4("model", model);
+		glm::vec3 col(0.5f, 0.3f, 0.5f);
+		lightingShader.setVec3("material.color", col);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, diffuseMap);
@@ -350,21 +424,58 @@ int main()
 				boxMove(cubePositions[i], cubeRotation[i]);
 			}
 		}
-		
+
 		glBindVertexArray(cubeVAO);
 		for (unsigned int i = 0; i < CUBS_COUNT; i++)
 		{
-			
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
-			float angle = 20.0f * i;
+			float angle = 20.0f * spin;
 
 			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 			lightingShader.setMat4("model", model);
 
 			glDrawArrays(GL_TRIANGLES, 0, 36);
 		}
+		spin += 0.0009f;
 
+		//sphere render	
+		for (int i = 0; i < SPHERE_COUNT; i++)
+		{
+			glm::mat4 model_sphere = glm::mat4(1.0f);
+			glm::vec3 col1(1.0f, 1.0f, 1.0f);
+			if ((i + 1) % 2 == 0)
+				col1 = glm::vec3(1.0f, 0.5f, 0.5f);
+			else if ((i + 1) % 3 == 0)
+				col1 = glm::vec3(0.5f, 1.0f, 0.5f);
+			else if ((i + 1) % 5 == 0)
+				col1 = glm::vec3(0.5f, 0.5f, 1.0f);
+			else
+				col1 = glm::vec3(1.0f, 0.45f, 0.0f);
+			sphereShader.setMat4("model", model_sphere);
+			sphereShader.setVec3("material.color", col1);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, diffuseMap1);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, specularMap1);
+			glBindVertexArray(sphereVAO);
+			model_sphere = glm::mat4(1.0f);
+			model_sphere = glm::translate(model_sphere, spherePositions[i]);
+			if((i + 1) % 2 == 0)
+				model_sphere = glm::scale(model_sphere, glm::vec3(0.2f));
+			else if ((i + 1) % 3 == 0)
+				model_sphere = glm::scale(model_sphere, glm::vec3(0.6f));
+			else if ((i + 1) % 5 == 0)
+				model_sphere = glm::scale(model_sphere, glm::vec3(0.9f));
+			else
+				model_sphere = glm::scale(model_sphere, glm::vec3(1.2f));
+			sphereShader.setMat4("model", model_sphere);
+			//glPointSize(5);
+			//glDrawElements(GL_POINTS, X_segments * Y_segments * 6, GL_UNSIGNED_INT, 0);
+			//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+			glDrawElements(GL_TRIANGLES, X_segments * Y_segments * 6, GL_UNSIGNED_INT, 0);
+		}
 		lampShader.use();
 		lampShader.setMat4("projection", projection);
 		lampShader.setMat4("view", view);
@@ -384,6 +495,9 @@ int main()
 	glDeleteVertexArrays(1, &cubeVAO);
 	glDeleteVertexArrays(1, &lightVAO);
 	glDeleteBuffers(1, &VBO);
+	glDeleteVertexArrays(1, &sphereVAO);
+	glDeleteBuffers(1, &sphereVBO);
+	glDeleteBuffers(1, &EBO);
 
 	glfwTerminate();
 	return 0;

@@ -5,7 +5,6 @@ struct Material {
     sampler2D diffuse;
     sampler2D specular;
     float shininess;
-    vec3 color;
 }; 
 
 struct DirLight {
@@ -71,7 +70,7 @@ void main()
 
     result += CalcSpotLight(spotLight, norm, FragPos, viewDir);    
     
-    FragColor = vec4(result, 1.0) * vec4(material.color, 1.0f);
+    FragColor = vec4(result, 1.0);
 }
 
 vec3 CalcDirLight(DirLight light, vec3 normal, vec3 viewDir)
