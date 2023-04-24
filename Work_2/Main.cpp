@@ -1,6 +1,15 @@
+/*
+Для начала нужно нажать enter
+кнопки 1 и 2 направляют соответствующий куб в обратное направление (у каждого нажатия есть кд, так как без этого кнопка считывается на многих тактах)
+при столкновении можно опять запустить через enter
+*/
+
+
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include<cmath>
+//#include <gl/gl.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -9,14 +18,6 @@
 #include "Shaders.h"
 #include "Camera.h"
 #include "stb_image.h"
-
-#define CUBS_COUNT 2
-
-
-
-float xR = 0.001f, yR = 0.001f, zR = 0.001f;
-
-const unsigned int SPHERE_COUNT = 5;
 
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
@@ -67,9 +68,6 @@ void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag)
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 unsigned int loadTexture(const char* path);
-void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation); 
-bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation); 
-void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber);
 //void Map_Init();
 //void Map_Show();
 
@@ -176,30 +174,6 @@ int main()
 		glm::vec3(-1.3f,  1.0f, -1.5f)
 	};
 
-	glm::vec3 cubeLightPos[] = {
-		glm::vec3(3.0f, 3.5f, 3.0f),
-		glm::vec3(-1.0f, -1.0f, -0.5f),
-		glm::vec3(3.0f, 3.5f, -0.5f),
-		glm::vec3(3.0f, -1.0f, -0.5f),
-		glm::vec3(3.0f, -1.0f, 3.0f),
-		glm::vec3(-1.0f, -1.0f, 3.0f),
-		glm::vec3(-1.0f, 3.5f, -0.5f),
-		glm::vec3(-1.0f, 3.5f, 3.0f)
-	};
-
-	glm::vec3 cubeRotation[] = {
-		glm::vec3(0.001f,  0.001f,  0.001f),
-		glm::vec3(0.0009f,  -0.0009f,  0.0009f),
-		glm::vec3(0.0006f,  0.0006f,  0.0006f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f),
-		glm::vec3(0.0007f,  0.0007f,  0.0007f)
-	};
-
 	glm::vec3 pointLightPositions[] = {
 		glm::vec3(0.7f,  0.2f,  2.0f),
 		glm::vec3(2.3f, -3.3f, -4.0f),
@@ -300,9 +274,7 @@ int main()
 	sphereShader.setInt("material.diffuse", 0);
 	sphereShader.setInt("material.specular", 1);
 	//lightingShader.setInt("material.emission", 2);
-
-	size_t taktFlag = 0;
-
+	
 	while (!glfwWindowShouldClose(window))
 	{
 		if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) startGame = true;
@@ -359,38 +331,7 @@ int main()
 		lightingShader.setFloat("pointLights[3].linear", 0.09);
 		lightingShader.setFloat("pointLights[3].quadratic", 0.032);
 
-		lightingShader.setVec3("pointLights[4].position", cubeLightPos[4]);
-		lightingShader.setVec3("pointLights[4].ambient", 0.05f, 0.05f, 0.05f);
-		lightingShader.setVec3("pointLights[4].diffuse", 0.8f, 0.8f, 0.8f);
-		lightingShader.setVec3("pointLights[4].specular", 1.0f, 1.0f, 1.0f);
-		lightingShader.setFloat("pointLights[4].constant", 1.0f);
-		lightingShader.setFloat("pointLights[4].linear", 0.09);
-		lightingShader.setFloat("pointLights[4].quadratic", 0.032);
-
-		lightingShader.setVec3("pointLights[5].position", cubeLightPos[5]);
-		lightingShader.setVec3("pointLights[5].ambient", 0.05f, 0.05f, 0.05f);
-		lightingShader.setVec3("pointLights[5].diffuse", 0.8f, 0.8f, 0.8f);
-		lightingShader.setVec3("pointLights[5].specular", 1.0f, 1.0f, 1.0f);
-		lightingShader.setFloat("pointLights[5].constant", 1.0f);
-		lightingShader.setFloat("pointLights[5].linear", 0.09);
-		lightingShader.setFloat("pointLights[5].quadratic", 0.032);
-
-		lightingShader.setVec3("pointLights[6].position", cubeLightPos[6]);
-		lightingShader.setVec3("pointLights[6].ambient", 0.05f, 0.05f, 0.05f);
-		lightingShader.setVec3("pointLights[6].diffuse", 0.8f, 0.8f, 0.8f);
-		lightingShader.setVec3("pointLights[6].specular", 1.0f, 1.0f, 1.0f);
-		lightingShader.setFloat("pointLights[6].constant", 1.0f);
-		lightingShader.setFloat("pointLights[6].linear", 0.09);
-		lightingShader.setFloat("pointLights[6].quadratic", 0.032);
-
-		lightingShader.setVec3("pointLights[7].position", cubeLightPos[7]);
-		lightingShader.setVec3("pointLights[7].ambient", 0.05f, 0.05f, 0.05f);
-		lightingShader.setVec3("pointLights[7].diffuse", 0.8f, 0.8f, 0.8f);
-		lightingShader.setVec3("pointLights[7].specular", 1.0f, 1.0f, 1.0f);
-		lightingShader.setFloat("pointLights[7].constant", 1.0f);
-		lightingShader.setFloat("pointLights[7].linear", 0.09);
-		lightingShader.setFloat("pointLights[7].quadratic", 0.032);
-
+		// Прожектор
 		lightingShader.setVec3("spotLight.position", camera.Position);
 		lightingShader.setVec3("spotLight.direction", camera.Front);
 		lightingShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
@@ -418,20 +359,13 @@ int main()
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_2D, specularMap);
 
-		if (startGame) {
-			for (int i = 0; i < CUBS_COUNT; i++) {
-				if (boxCollision(cubePositions, i, cubeRotation)) startGame = false;
-				boxMove(cubePositions[i], cubeRotation[i]);
-			}
-		}
-
+		// рендеринг ящика
 		glBindVertexArray(cubeVAO);
 		for (unsigned int i = 0; i < CUBS_COUNT; i++)
 		{
 			glm::mat4 model = glm::mat4(1.0f);
 			model = glm::translate(model, cubePositions[i]);
-			float angle = 20.0f * spin;
-
+			float angle = 20.0f * i;
 			model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
 			lightingShader.setMat4("model", model);
 
@@ -521,15 +455,6 @@ void processInput(GLFWwindow* window, glm::vec3* cubeRotation, size_t& taktFlag)
 		camera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 		camera.ProcessKeyboard(RIGHT, deltaTime);
-	if ((glfwGetKey(window, GLFW_KEY_1) && (taktFlag > 1100)) == GLFW_PRESS) {
-		ChangeDierction(cubeRotation, 0);
-		taktFlag = 0;
-	}
-	if ((glfwGetKey(window, GLFW_KEY_2) && (taktFlag > 1100)) == GLFW_PRESS) {
-		ChangeDierction(cubeRotation, 1);
-		taktFlag = 0;
-	}
-	taktFlag++;
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -586,45 +511,3 @@ unsigned int loadTexture(const char* path)
 	}
 	return textureID;
 }
-
-void boxMove(glm::vec3& cubePositions, glm::vec3& cubeRotation) {
-	
-	if ((cubePositions.x + cubeRotation.x >= 3.0f) || (cubePositions.x + cubeRotation.x <= -1.0f))
-	{
-		cubeRotation.x = -cubeRotation.x;
-
-	}
-	if ((cubePositions.y + cubeRotation.y >= 3.5f) || (cubePositions.y + cubeRotation.y <= -1.0f))
-	{
-		cubeRotation.y = -cubeRotation.y;
-	}
-	if ((cubePositions.z + cubeRotation.z >= 3.0f) || (cubePositions.z + cubeRotation.z <= -0.5f))
-	{
-		cubeRotation.z = -cubeRotation.z;
-	}
-	cubePositions.x += cubeRotation.x;
-	cubePositions.y += cubeRotation.y;
-	cubePositions.z += cubeRotation.z;
-}
-
-bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation) {
-	bool res = false;
-	for (size_t i = curCubeId + 1; i < CUBS_COUNT; i++) {
-		if (abs((cubePositions[curCubeId].x) - (cubePositions[i].x)) <= 1.0f)
-			if (abs((cubePositions[curCubeId].y) - (cubePositions[i].y)) <= 1.0f)
-				if (abs((cubePositions[curCubeId].z) - (cubePositions[i].z)) <= 1.0f)
-				{
-					ChangeDierction(cubeRotation, curCubeId);
-					ChangeDierction(cubeRotation, i);
-					return true;
-				}
-	}
-	return false;
-}
-
-void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber) {
-	cubeRotation[cubeNumber].x = -cubeRotation[cubeNumber].x;
-	cubeRotation[cubeNumber].y = -cubeRotation[cubeNumber].y;
-	cubeRotation[cubeNumber].z = -cubeRotation[cubeNumber].z;
-}
-

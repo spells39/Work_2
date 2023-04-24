@@ -72,16 +72,16 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\C++\Work_2\Work_2\Libraries\lib;C:\C++\Work_2\Work_2\Libraries\include;C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\C++\Work_2\Work_2\Libraries\lib;C:\C++\Work_2\Work_2\Libraries\include;C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\C++\Work_2\Work_2\Libraries\lib;C:\C++\Work_2\Work_2\Libraries\include;C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\C++\Work_2\Work_2\Libraries\lib;C:\C++\Work_2\Work_2\Libraries\include;C:\Users\Илья\Desktop\4 семестр\Компьютерная графика\Programs\Work_2 _\Work_2\Libraries\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
