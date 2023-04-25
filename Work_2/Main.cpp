@@ -1,3 +1,4 @@
+// Выбор на пробел
 #include <iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
@@ -10,9 +11,10 @@
 #include "Camera.h"
 #include "stb_image.h"
 
+#include<cmath>
+
 #define CUBS_COUNT 2
 #define SPHERE_COUNT 6
-
 
 
 float xR = 0.001f, yR = 0.001f, zR = 0.001f;
@@ -32,6 +34,11 @@ Camera camera(glm::vec3(-1.2f, -0.25f, 3.0f));
 bool firstMouse = true;
 bool flagColisionOut = false;
 bool startGame = false;
+bool insAlr = false;
+bool flagRemCube[CUBS_COUNT];
+bool flagRemSphere[SPHERE_COUNT];
+
+
 
 float lastX = SCR_WIDTH / 2.0;
 float lastY = SCR_HEIGHT / 2.0;
@@ -71,6 +78,8 @@ void sphereMove(glm::vec3& spherePositions, glm::vec3& sphereRotation, glm::vec3
 bool boxCollision(glm::vec3* cubePositions, size_t curCubeId, glm::vec3* cubeRotation, glm::vec3* spherePositions, glm::vec3* sphereRotation, float* sphereSize);
 bool sphereCollision(glm::vec3* spherePositions, size_t curSphereId, glm::vec3* sphereRotation, float* sphereSize);
 void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber);
+bool intersectSphere(glm::vec3 spherePositions, float* sphereSize, size_t sphereNum);
+bool intersectCube(glm::vec3 cubePositions);
 //void Map_Init();
 //void Map_Show();
 
@@ -99,6 +108,13 @@ int main()
 	{
 		std::cout << "Failed to initialize GLAD\n";
 		return -1;
+	}
+
+	for (int i = 0; i < CUBS_COUNT; i++) {
+		flagRemCube[i] = false;
+	}
+	for (int i = 0; i < SPHERE_COUNT; i++) {
+		flagRemSphere[i] = false;
 	}
 
 	glEnable(GL_DEPTH_TEST);
@@ -193,10 +209,10 @@ int main()
 	};
 
 	glm::vec3 cubeRotation[] = {
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  -0.0009f,  -0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  -0.0007f,  -0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
 		glm::vec3(0.0007f,  0.0007f,  0.0007f),
 		glm::vec3(0.0007f,  0.0007f,  0.0007f),
 		glm::vec3(0.0007f,  0.0007f,  0.0007f),
@@ -206,16 +222,16 @@ int main()
 	};
 
 	glm::vec3 sphereRotation[] = {
-		glm::vec3(0.0009f,  0.0009f,  -0.0009f),
-		glm::vec3(-0.0009f,  -0.0009f,  0.0009f),
-		glm::vec3(-0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(-0.0009f,  -0.0009f,  -0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f),
-		glm::vec3(0.0009f,  0.0009f,  0.0009f)
+		glm::vec3(0.0007f,  0.0007f,  -0.0007f),
+		glm::vec3(-0.0007f,  -0.0007f,  0.0007f),
+		glm::vec3(-0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(-0.0007f,  -0.0007f,  -0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f),
+		glm::vec3(0.0007f,  0.0007f,  0.0007f)
 	};
 
 	std::vector<float> SphereVertices;
@@ -317,7 +333,7 @@ int main()
 	while (!glfwWindowShouldClose(window))
 	{
 		if (glfwGetKey(window, GLFW_KEY_ENTER) == GLFW_PRESS) startGame = true;
-		float currentTime = glfwGetTime();
+		float currentTime = (float)glfwGetTime();
 		deltaTime = currentTime - lastFrame;
 		lastFrame = currentTime;
 		processInput(window, cubeRotation, taktFlag);
@@ -340,8 +356,8 @@ int main()
 		lightingShader.setVec3("pointLights[0].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[0].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[0].constant", 1.0f);
-		lightingShader.setFloat("pointLights[0].linear", 0.09);
-		lightingShader.setFloat("pointLights[0].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[0].linear", 0.09f);
+		lightingShader.setFloat("pointLights[0].quadratic", 0.032f);
 
 
 		lightingShader.setVec3("pointLights[1].position", cubeLightPos[1]);
@@ -349,8 +365,8 @@ int main()
 		lightingShader.setVec3("pointLights[1].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[1].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[1].constant", 1.0f);
-		lightingShader.setFloat("pointLights[1].linear", 0.09);
-		lightingShader.setFloat("pointLights[1].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[1].linear", 0.09f);
+		lightingShader.setFloat("pointLights[1].quadratic", 0.032f);
 
 
 		lightingShader.setVec3("pointLights[2].position", cubeLightPos[2]);
@@ -358,8 +374,8 @@ int main()
 		lightingShader.setVec3("pointLights[2].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[2].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[2].constant", 1.0f);
-		lightingShader.setFloat("pointLights[2].linear", 0.09);
-		lightingShader.setFloat("pointLights[2].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[2].linear", 0.09f);
+		lightingShader.setFloat("pointLights[2].quadratic", 0.032f);
 
 
 		lightingShader.setVec3("pointLights[3].position", cubeLightPos[3]);
@@ -367,40 +383,40 @@ int main()
 		lightingShader.setVec3("pointLights[3].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[3].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[3].constant", 1.0f);
-		lightingShader.setFloat("pointLights[3].linear", 0.09);
-		lightingShader.setFloat("pointLights[3].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[3].linear", 0.09f);
+		lightingShader.setFloat("pointLights[3].quadratic", 0.032f);
 
 		lightingShader.setVec3("pointLights[4].position", cubeLightPos[4]);
 		lightingShader.setVec3("pointLights[4].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[4].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[4].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[4].constant", 1.0f);
-		lightingShader.setFloat("pointLights[4].linear", 0.09);
-		lightingShader.setFloat("pointLights[4].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[4].linear", 0.09f);
+		lightingShader.setFloat("pointLights[4].quadratic", 0.032f);
 
 		lightingShader.setVec3("pointLights[5].position", cubeLightPos[5]);
 		lightingShader.setVec3("pointLights[5].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[5].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[5].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[5].constant", 1.0f);
-		lightingShader.setFloat("pointLights[5].linear", 0.09);
-		lightingShader.setFloat("pointLights[5].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[5].linear", 0.09f);
+		lightingShader.setFloat("pointLights[5].quadratic", 0.032f);
 
 		lightingShader.setVec3("pointLights[6].position", cubeLightPos[6]);
 		lightingShader.setVec3("pointLights[6].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[6].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[6].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[6].constant", 1.0f);
-		lightingShader.setFloat("pointLights[6].linear", 0.09);
-		lightingShader.setFloat("pointLights[6].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[6].linear", 0.09f);
+		lightingShader.setFloat("pointLights[6].quadratic", 0.032f);
 
 		lightingShader.setVec3("pointLights[7].position", cubeLightPos[7]);
 		lightingShader.setVec3("pointLights[7].ambient", 0.05f, 0.05f, 0.05f);
 		lightingShader.setVec3("pointLights[7].diffuse", 0.8f, 0.8f, 0.8f);
 		lightingShader.setVec3("pointLights[7].specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("pointLights[7].constant", 1.0f);
-		lightingShader.setFloat("pointLights[7].linear", 0.09);
-		lightingShader.setFloat("pointLights[7].quadratic", 0.032);
+		lightingShader.setFloat("pointLights[7].linear", 0.09f);
+		lightingShader.setFloat("pointLights[7].quadratic", 0.032f);
 
 		lightingShader.setVec3("spotLight.position", camera.Position);
 		lightingShader.setVec3("spotLight.direction", camera.Front);
@@ -408,8 +424,8 @@ int main()
 		lightingShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
 		lightingShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
 		lightingShader.setFloat("spotLight.constant", 1.0f);
-		lightingShader.setFloat("spotLight.linear", 0.09);
-		lightingShader.setFloat("spotLight.quadratic", 0.032);
+		lightingShader.setFloat("spotLight.linear", 0.09f);
+		lightingShader.setFloat("spotLight.quadratic", 0.032f);
 		lightingShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(12.5f)));
 		lightingShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(15.0f)));
 
@@ -438,7 +454,90 @@ int main()
 				sphereCollision(spherePositions, i, sphereRotation, sphereSize);
 				sphereMove(spherePositions[i], sphereRotation[i], cubeLightPos, sphereSize, i);
 			}
+			for (int i = 0; i < SPHERE_COUNT; i++) {
+				if ((intersectSphere(spherePositions[i], sphereSize, i)) && (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)) {
+					if (!insAlr) {
+						flagRemSphere[i] = true;
+						insAlr = true;
+					}
+					else {
+						if (flagRemSphere[i])
+							continue;
+						else if (((i % 2 == 0) && (flagRemSphere[i + 1])) || (i % 2 == 1) && (flagRemSphere[i - 1]))
+						{
+							if (i % 2 == 0) {
+								spherePositions[i].x = -1000.0f;
+								spherePositions[i].y = -1000.0f;
+								spherePositions[i].z = -1000.0f;
+								spherePositions[i + 1].x = -1000.0f;
+								spherePositions[i + 1].y = -1000.0f;
+								spherePositions[i + 1].z = -1000.0f;
+							}
+							if (i % 2 == 1) {
+								spherePositions[i].x = -1000.0f;
+								spherePositions[i].y = -1000.0f;
+								spherePositions[i].z = -1000.0f;
+								spherePositions[i - 1].x = -1000.0f;
+								spherePositions[i - 1].y = -1000.0f;
+								spherePositions[i - 1].z = -1000.0f;
+							}
+							flagRemSphere[i] = true;
+						}
+						else {
+							for (int i = 0; i < CUBS_COUNT; i++) {
+								flagRemCube[i] = false;
+							}
+							for (int i = 0; i < SPHERE_COUNT; i++) {
+								flagRemSphere[i] = false;
+							}
+						}
+						insAlr = false;
+					}
+				}
+			}
+			for (int i = 0; i < CUBS_COUNT; i++) {
+				if ((intersectCube(cubePositions[i])) && (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)) {
+					if (!insAlr) {
+						flagRemCube[i] = true;
+						insAlr = true;
+					}
+					else {
+						if (flagRemCube[i])
+							continue;
+						else if (((i % 2 == 0) && (flagRemCube[i + 1])) || (i % 2 == 1) && (flagRemCube[i - 1]))
+						{
+							if (i % 2 == 0) {
+								cubePositions[i].x = -1000.0f;
+								cubePositions[i].y = -1000.0f;
+								cubePositions[i].z = -1000.0f;
+								cubePositions[i + 1].x = -1000.0f;
+								cubePositions[i + 1].y = -1000.0f;
+								cubePositions[i + 1].z = -1000.0f;
+							}
+							if (i % 2 == 1) {
+								cubePositions[i].x = -1000.0f;
+								cubePositions[i].y = -1000.0f;
+								cubePositions[i].z = -1000.0f;
+								cubePositions[i - 1].x = -1000.0f;
+								cubePositions[i - 1].y = -1000.0f;
+								cubePositions[i - 1].z = -1000.0f;
+							}
+							flagRemCube[i] = true;
+						}
+						else {
+							for (int i = 0; i < CUBS_COUNT; i++) {
+								flagRemCube[i] = false;
+							}
+							for (int i = 0; i < SPHERE_COUNT; i++) {
+								flagRemSphere[i] = false;
+							}
+						}
+						insAlr = false;
+					}
+				}
+			}
 		}
+		
 
 		glBindVertexArray(cubeVAO);
 		for (unsigned int i = 0; i < CUBS_COUNT; i++)
@@ -482,7 +581,7 @@ int main()
 			else if (i <= 3)
 				model_sphere = glm::scale(model_sphere, glm::vec3(sphereSize[1]));
 			else if (i <= 5)
-				model_sphere = glm::scale(model_sphere, glm::vec3(sphereSize[0]));
+				model_sphere = glm::scale(model_sphere, glm::vec3(sphereSize[2]));
 			else
 				model_sphere = glm::scale(model_sphere, glm::vec3(sphereSize[3]));
 			sphereShader.setMat4("model", model_sphere);
@@ -551,20 +650,20 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
 	if (firstMouse)
 	{
-		lastX = xpos;
-		lastY = ypos;
+		lastX = (float)xpos;
+		lastY = (float)ypos;
 		firstMouse = false;
 	}
-	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos;
-	lastX = xpos;
-	lastY = ypos;
+	float xoffset = (float)(xpos - lastX);
+	float yoffset = (float)(lastY - ypos);
+	lastX = (float)xpos;
+	lastY = (float)ypos;
 	camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	camera.ProcessMouseScroll(yoffset);
+	camera.ProcessMouseScroll((float)yoffset);
 }
 
 unsigned int loadTexture(const char* path)
@@ -576,7 +675,7 @@ unsigned int loadTexture(const char* path)
 	unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
 	if (data)
 	{
-		GLenum format;
+		GLenum format = GLenum();
 		if (nrComponents == 1)
 			format = GL_RED;
 		else if (nrComponents == 3)
@@ -685,4 +784,35 @@ void ChangeDierction(glm::vec3* cubeRotation, size_t cubeNumber) {
 	cubeRotation[cubeNumber].x = -cubeRotation[cubeNumber].x;
 	cubeRotation[cubeNumber].y = -cubeRotation[cubeNumber].y;
 	cubeRotation[cubeNumber].z = -cubeRotation[cubeNumber].z;
+}
+
+bool disc(float a, float b, float c) {
+	float d = b * b - 4 * a * c;
+	if (d > 0)
+	{
+		return true;
+	}
+	if (d == 0)
+	{
+		return true;
+	}
+	if (d < 0)
+		return false;
+}
+
+bool intersectSphere(glm::vec3 spherePositions, float* sphereSize, size_t sphereNum)
+{
+	glm::vec3 d = camera.Position - spherePositions;
+	if (disc(camera.Front.x * camera.Front.x + camera.Front.y * camera.Front.y + camera.Front.z * camera.Front.z, 2.0f * (camera.Front.x * d.x + camera.Front.y * d.y + camera.Front.z * d.z), d.x * d.x + d.y * d.y + d.z * d.z - sphereSize[sphereNum / 2] * sphereSize[sphereNum / 2])) {
+		return true;
+	}
+	return false;
+}
+
+bool intersectCube(glm::vec3 cubePositions) {
+	glm::vec3 d = camera.Position - cubePositions;
+	if (disc(camera.Front.x * camera.Front.x + camera.Front.y * camera.Front.y + camera.Front.z * camera.Front.z, 2.0f * (camera.Front.x * d.x + camera.Front.y * d.y + camera.Front.z * d.z), d.x * d.x + d.y * d.y + d.z * d.z - 0.5f * 0.5f)) {
+		return true;
+	}
+	return false;
 }
