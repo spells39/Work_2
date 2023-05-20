@@ -38,7 +38,8 @@ bool insAlr = false;
 bool flagRemCube[CUBS_COUNT];
 bool flagRemSphere[SPHERE_COUNT];
 
-
+//преобразование в однородных координатах 
+//модель сцены
 
 float lastX = SCR_WIDTH / 2.0;
 float lastY = SCR_HEIGHT / 2.0;
